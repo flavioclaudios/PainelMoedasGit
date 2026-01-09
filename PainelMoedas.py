@@ -83,76 +83,6 @@ moedas = {
     "CLP": "Peso Chileno"
 }
 
-# pares diretos que o Yahoo normalmente suporta
-PARES_DIRETOS = {"USD", "EUR", "JPY", "GBP", "CHF", "CAD", "ARS", "CNY"}  # CNY às vezes funciona direto
-
-@st.cache_data(ttl=300)
-def yahoo_last_close(ticker):
-    try:
-        hist = yf.download(tickers=ticker, period="5d", interval="1d", progress=False)
-        closes = hist["Close"].dropna()
-        if len(closes) >= 1:
-            return float(closes.iloc[-1])
-    except Exception:
-        pass
-    return None
-
-@st.cache_data(ttl=300)
-def yahoo_pct_change_last(ticker):
-    try:
-        hist = yf.download(tickers=ticker, period="7d", interval="1d", progress=False)
-        closes = hist["Close"].dropna()
-        if len(closes) >= 2:
-            prev, last = closes.iloc[-2], closes.iloc[-1]
-            return float((last - prev) / prev * 100)
-    except Exception:
-        pass
-    return None
-
-def valor_via_yahoo(moeda):
-    # tenta par direto moeda/BRL
-    direct_ticker = f"{moeda}BRL=X"
-    v_direct = yahoo_last_close(direct_ticker)
-    if v_direct is not None:
-        return v_direct
-
-    # se não houver par direto, usa cross via USD: (USD/moeda) e (USD/BRL)
-    usd_moeda = yahoo_last_close(f"USD{moeda}=X")  # preço da moeda por USD
-    usd_brl = yahoo_last_close("USDBRL=X")         # BRL por USD
-    if usd_moeda is not None and usd_brl is not None and usd_brl != 0:
-        # moeda/BRL = (moeda/USD) / (BRL/USD)
-        return usd_moeda / usd_brl
-
-    return None
-
-def variacao_via_yahoo(moeda):
-    # tenta variação do par direto
-    direct_ticker = f"{moeda}BRL=X"
-    v_direct = yahoo_pct_change_last(direct_ticker)
-    if v_direct is not None:
-        return v_direct
-
-    # se não houver, usa variação via USD: % (USD/moeda) - % (USD/BRL)
-    pct_usd_moeda = yahoo_pct_change_last(f"USD{moeda}=X")
-    pct_usd_brl = yahoo_pct_change_last("USDBRL=X")
-    if pct_usd_moeda is not None and pct_usd_brl is not None:
-        # para razão A/B, aprox var% ≈ varA% - varB%
-        return pct_usd_moeda - pct_usd_brl
-
-    return None
-
-@st.cache_data(ttl=120)
-def awesome_data():
-    url = "https://economia.awesomeapi.com.br/json/last/" + ",".join(
-        [f"{m}-BRL" for m in moedas.keys()]
-    )
-    try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        return r.json()
-    except Exception:
-        return {}
-
 data = awesome_data()
 cols = st.columns(5)
 
@@ -186,22 +116,6 @@ for i, (moeda, nome) in enumerate(moedas.items()):
             st.metric(label=f"{nome} ({moeda}/BRL)", value=f"R$ {valor:.3f}", delta=delta_str)
         else:
             st.metric(label=f"{nome} ({moeda}/BRL)", value="❌ Não disponível", delta="0.00%")
-        chave = f"{moeda}BRL"
-        if chave in data:
-            info = data[chave]
-            # usa bid (compra) como valor principal
-            valor = float(info.get("bid", "nan"))
-            variacao = float(info.get("varBid", 0.0))
-        else:
-            valor, variacao = float("nan"), 0.0
-    except Exception:
-        valor, variacao = float("nan"), 0.0
-
-    with cols[i % 5]:
-        if not (valor != valor):  # checa se não é NaN
-            st.metric(label=f"{nome} ({moeda}/BRL)", value=f"R$ {valor:.3f}", delta=f"{variacao:+.3f}")
-        else:
-            st.metric(label=f"{nome} ({moeda}/BRL)", value="⚠️ Sem dados", delta="0.0")
             
 # ---------------- Índices (mini-charts com Altair e tema escuro) ----------------
 st.header("📈 Índices - Visão Rápida")
@@ -297,5 +211,6 @@ with col2:
     st.subheader("📉 Maiores Baixas")
     df_baixas = pd.DataFrame(baixas, columns=["Ação", "Variação (%)"])
     st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}"}))
+
 
 
