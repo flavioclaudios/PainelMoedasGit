@@ -89,13 +89,23 @@ moedas = {
 cols = st.columns(5)
 for i, (moeda, nome) in enumerate(moedas.items()):
     try:
-        valor = float(data[f"{moeda}BRL"]["bid"])
-        variacao = float(data[f"{moeda}BRL"]["varBid"])
+        chave = f"{moeda}BRL"
+        if chave in data:
+            info = data[chave]
+            # usa bid (compra) como valor principal
+            valor = float(info.get("bid", "nan"))
+            variacao = float(info.get("varBid", 0.0))
+        else:
+            valor, variacao = float("nan"), 0.0
     except Exception:
         valor, variacao = float("nan"), 0.0
-    with cols[i % 5]:
-        st.metric(label=f"{nome} ({moeda}/BRL)", value=f"R$ {valor:.3f}", delta=f"{variacao:+.3f}")
 
+    with cols[i % 5]:
+        if not (valor != valor):  # checa se não é NaN
+            st.metric(label=f"{nome} ({moeda}/BRL)", value=f"R$ {valor:.3f}", delta=f"{variacao:+.3f}")
+        else:
+            st.metric(label=f"{nome} ({moeda}/BRL)", value="⚠️ Sem dados", delta="0.0")
+            
 # ---------------- Índices (mini-charts com Altair e tema escuro) ----------------
 st.header("📈 Índices - Visão Rápida")
 
