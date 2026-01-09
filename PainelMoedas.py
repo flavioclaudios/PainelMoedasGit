@@ -153,10 +153,18 @@ for i, (moeda, nome) in enumerate(moedas.items()):
         except Exception:
             variacao = None
 
-    with cols[i % 5]:
+        with cols[i % 5]:
         if valor is not None:
+            # regra: se as duas primeiras casas decimais forem "00", mostra 4 casas
+            casas = f"{valor:.3f}"
+            parte_decimal = casas.split(".")[1]
+            if parte_decimal.startswith("00"):
+                valor_str = f"R$ {valor:.4f}"
+            else:
+                valor_str = f"R$ {valor:.3f}"
+
             delta_str = f"{variacao:+.2f}%" if variacao is not None else "0.00%"
-            st.metric(label=f"{nome} ({moeda}/BRL)", value=f"R$ {valor:.3f}", delta=delta_str)
+            st.metric(label=f"{nome} ({moeda}/BRL)", value=valor_str, delta=delta_str)
         else:
             st.metric(label=f"{nome} ({moeda}/BRL)", value="❌ Não disponível", delta="0.00%")
 
@@ -241,5 +249,6 @@ with col2:
     st.subheader("📉 Maiores Baixas")
     df_baixas = pd.DataFrame(baixas, columns=["Ação", "Variação (%)"])
     st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}"}))
+
 
 
