@@ -83,8 +83,21 @@ moedas = {
     "CLP": "Peso Chileno"
 }
 
+@st.cache_data(ttl=120)
+def awesome_data():
+    url = "https://economia.awesomeapi.com.br/json/last/" + ",".join(
+        [f"{m}-BRL" for m in moedas.keys()]
+    )
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        return {}
+
 data = awesome_data()
-cols = st.columns(5)
+
+
 
 for i, (moeda, nome) in enumerate(moedas.items()):
     # valor: tenta AwesomeAPI, senão Yahoo
@@ -211,6 +224,7 @@ with col2:
     st.subheader("📉 Maiores Baixas")
     df_baixas = pd.DataFrame(baixas, columns=["Ação", "Variação (%)"])
     st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}"}))
+
 
 
 
