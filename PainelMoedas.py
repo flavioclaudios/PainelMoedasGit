@@ -75,26 +75,46 @@ def yahoo_pct_change_last(ticker):
     return None
 
 def valor_via_yahoo(moeda):
+    # Caso especial: USD/BRL
+    if moeda == "USD":
+        return yahoo_last_close("USDBRL=X")
+
+    # tenta par direto moeda/BRL
     direct_ticker = f"{moeda}BRL=X"
     v_direct = yahoo_last_close(direct_ticker)
     if v_direct is not None:
         return v_direct
-    usd_moeda = yahoo_last_close(f"USD{moeda}=X")
-    usd_brl = yahoo_last_close("USDBRL=X")
+
+    # se não houver par direto, usa cross via USD
+    usd_moeda = yahoo_last_close(f"USD{moeda}=X")  # preço da moeda por USD
+    usd_brl = yahoo_last_close("USDBRL=X")         # BRL por USD
     if usd_moeda is not None and usd_brl is not None and usd_brl != 0:
+        # moeda/BRL = (moeda/USD) / (BRL/USD)
         return usd_moeda / usd_brl
+
     return None
 
+
 def variacao_via_yahoo(moeda):
+    # Caso especial: USD/BRL
+    if moeda == "USD":
+        return yahoo_pct_change_last("USDBRL=X")
+
+    # tenta variação do par direto
     direct_ticker = f"{moeda}BRL=X"
     v_direct = yahoo_pct_change_last(direct_ticker)
     if v_direct is not None:
         return v_direct
+
+    # se não houver, usa variação via USD
     pct_usd_moeda = yahoo_pct_change_last(f"USD{moeda}=X")
     pct_usd_brl = yahoo_pct_change_last("USDBRL=X")
     if pct_usd_moeda is not None and pct_usd_brl is not None:
+        # para razão A/B, aprox var% ≈ varA% - varB%
         return pct_usd_moeda - pct_usd_brl
+
     return None
+
 
 @st.cache_data(ttl=120)
 def awesome_data():
@@ -210,4 +230,16 @@ ordenado = sorted(dados.items(), key=lambda x: x[1], reverse=True)
 altas = ordenado[:5]
 baixas = ordenado[-5:]
 
-col1, col
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("📈 Maiores Altas")
+    df_altas = pd.DataFrame(altas, columns=["Ação", "Variação (%)"])
+    st.table(df_altas.style.format({"Variação (%)": "{:+.2f}"}))
+
+with col2:
+    st.subheader("📉 Maiores Baixas")
+    df_baixas = pd.DataFrame(baixas, columns=["Ação", "Variação (%)"])
+    st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}"}))
+
+
