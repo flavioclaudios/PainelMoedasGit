@@ -89,7 +89,6 @@ PARES_DIRETOS = {"USD", "EUR", "JPY", "GBP", "CHF", "CAD", "ARS", "CNY"}  # CNY 
 @st.cache_data(ttl=300)
 def yahoo_last_close(ticker):
     try:
-<<<<<<< HEAD
         hist = yf.download(tickers=ticker, period="5d", interval="1d", progress=False)
         closes = hist["Close"].dropna()
         if len(closes) >= 1:
@@ -187,7 +186,6 @@ for i, (moeda, nome) in enumerate(moedas.items()):
             st.metric(label=f"{nome} ({moeda}/BRL)", value=f"R$ {valor:.3f}", delta=delta_str)
         else:
             st.metric(label=f"{nome} ({moeda}/BRL)", value="❌ Não disponível", delta="0.00%")
-=======
         chave = f"{moeda}BRL"
         if chave in data:
             info = data[chave]
@@ -300,3 +298,4 @@ with col2:
     st.subheader("📉 Maiores Baixas")
     df_baixas = pd.DataFrame(baixas, columns=["Ação", "Variação (%)"])
     st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}"}))
+
