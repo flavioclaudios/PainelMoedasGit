@@ -238,9 +238,11 @@ for t in tickers_b3:
     if not df.empty:
         ultimo = df.iloc[-1]
         variacao = (ultimo["Close"] - ultimo["Open"]) / ultimo["Open"] * 100
-        dados[t] = variacao
+        preco = ultimo["Close"]
+        volume = ultimo["Volume"]
+        dados[t] = {"variacao": variacao, "preco": preco, "volume": volume}
 
-ordenado = sorted(dados.items(), key=lambda x: x[1], reverse=True)
+ordenado = sorted(dados.items(), key=lambda x: x[1]["variacao"], reverse=True)
 altas = ordenado[:5]
 baixas = ordenado[-5:]
 
@@ -248,13 +250,20 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("📈 Maiores Altas")
-    df_altas = pd.DataFrame(altas, columns=["Ação", "Variação (%)"])
-    st.table(df_altas.style.format({"Variação (%)": "{:+.2f}"}))
+    df_altas = pd.DataFrame(
+        [(t, d["variacao"], d["preco"], d["volume"]) for t, d in altas],
+        columns=["Ação", "Variação (%)", "Preço (R$)", "Volume"]
+    )
+    st.table(df_altas.style.format({"Variação (%)": "{:+.2f}", "Preço (R$)": "{:.2f}"}))
 
 with col2:
     st.subheader("📉 Maiores Baixas")
-    df_baixas = pd.DataFrame(baixas, columns=["Ação", "Variação (%)"])
-    st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}"}))
+    df_baixas = pd.DataFrame(
+        [(t, d["variacao"], d["preco"], d["volume"]) for t, d in baixas],
+        columns=["Ação", "Variação (%)", "Preço (R$)", "Volume"]
+    )
+    st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}", "Preço (R$)": "{:.2f}"}))
+
 
 
 
