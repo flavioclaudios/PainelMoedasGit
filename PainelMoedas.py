@@ -196,7 +196,6 @@ for i, (moeda, nome) in enumerate(moedas.items()):
             valor, variacao = float("nan"), 0.0
     except Exception:
         valor, variacao = float("nan"), 0.0
->>>>>>> c430ee575796aba9a9d0e62e6b1ed89bcc42c101
 
     with cols[i % 5]:
         if not (valor != valor):  # checa se não é NaN
@@ -298,4 +297,5 @@ with col2:
     st.subheader("📉 Maiores Baixas")
     df_baixas = pd.DataFrame(baixas, columns=["Ação", "Variação (%)"])
     st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}"}))
+
 
