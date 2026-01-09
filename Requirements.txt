@@ -1,6 +1,0 @@
-streamlit
-yfinance
-requests
-pandas
-streamlit-autorefresh
-altair
