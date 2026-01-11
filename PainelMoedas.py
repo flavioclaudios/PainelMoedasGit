@@ -38,32 +38,35 @@ st.markdown(
 # ---------------- Moedas ----------------
 st.header("💱 Moedas")
 
+# Dicionário com código da moeda, código da bandeira e nome
 moedas = {
-    "USD": "Dólar Americano",
-    "EUR": "Euro",
-    "JPY": "Iene Japonês",
-    "GBP": "Libra Esterlina",
-    "CHF": "Franco Suíço",
-    "CAD": "Dólar Canadense",
-    "CNY": "Yuan Chinês",
-    "COP": "Peso Colombiano",
-    "ARS": "Peso Argentino",
-    "CLP": "Peso Chileno"
+    "USD": ("us", "Dólar Americano"),
+    "EUR": ("eu", "Euro"),
+    "JPY": ("jp", "Iene Japonês"),
+    "GBP": ("gb", "Libra Esterlina"),
+    "CHF": ("ch", "Franco Suíço"),
+    "CAD": ("ca", "Dólar Canadense"),
+    "CNY": ("cn", "Yuan Chinês"),
+    "COP": ("co", "Peso Colombiano"),
+    "ARS": ("ar", "Peso Argentino"),
+    "CLP": ("cl", "Peso Chileno")
 }
 
+# Último fechamento via Yahoo
 @st.cache_data(ttl=300)
-def yahoo_last_close(ticker):
+def yahoo_last_close(ticker: str) -> float | None:
     try:
         hist = yf.download(tickers=ticker, period="5d", interval="1d", progress=False)
         closes = hist["Close"].dropna()
-        if len(closes) >= 1:
+        if not closes.empty:
             return float(closes.iloc[-1])
     except Exception:
-        pass
+        return None
     return None
 
+# Variação percentual via Yahoo
 @st.cache_data(ttl=300)
-def yahoo_pct_change_last(ticker):
+def yahoo_pct_change_last(ticker: str) -> float | None:
     try:
         hist = yf.download(tickers=ticker, period="7d", interval="1d", progress=False)
         closes = hist["Close"].dropna()
@@ -71,53 +74,46 @@ def yahoo_pct_change_last(ticker):
             prev, last = closes.iloc[-2], closes.iloc[-1]
             return float((last - prev) / prev * 100)
     except Exception:
-        pass
+        return None
     return None
 
-def valor_via_yahoo(moeda):
-    # Caso especial: USD/BRL
+# Valor da moeda em BRL
+def valor_via_yahoo(moeda: str) -> float | None:
     if moeda == "USD":
         return yahoo_last_close("USDBRL=X")
 
-    # tenta par direto moeda/BRL
     direct_ticker = f"{moeda}BRL=X"
     v_direct = yahoo_last_close(direct_ticker)
     if v_direct is not None:
         return v_direct
 
-    # se não houver par direto, usa cross via USD
-    usd_moeda = yahoo_last_close(f"USD{moeda}=X")  # preço da moeda por USD
-    usd_brl = yahoo_last_close("USDBRL=X")         # BRL por USD
-    if usd_moeda is not None and usd_brl is not None and usd_brl != 0:
-        # moeda/BRL = (moeda/USD) / (BRL/USD)
+    usd_moeda = yahoo_last_close(f"USD{moeda}=X")
+    usd_brl = yahoo_last_close("USDBRL=X")
+    if usd_moeda is not None and usd_brl not in (None, 0):
         return usd_moeda / usd_brl
 
     return None
 
-
-def variacao_via_yahoo(moeda):
-    # Caso especial: USD/BRL
+# Variação percentual da moeda em BRL
+def variacao_via_yahoo(moeda: str) -> float | None:
     if moeda == "USD":
         return yahoo_pct_change_last("USDBRL=X")
 
-    # tenta variação do par direto
     direct_ticker = f"{moeda}BRL=X"
     v_direct = yahoo_pct_change_last(direct_ticker)
     if v_direct is not None:
         return v_direct
 
-    # se não houver, usa variação via USD
     pct_usd_moeda = yahoo_pct_change_last(f"USD{moeda}=X")
     pct_usd_brl = yahoo_pct_change_last("USDBRL=X")
     if pct_usd_moeda is not None and pct_usd_brl is not None:
-        # para razão A/B, aprox var% ≈ varA% - varB%
         return pct_usd_moeda - pct_usd_brl
 
     return None
 
-
+# Dados da AwesomeAPI
 @st.cache_data(ttl=120)
-def awesome_data():
+def awesome_data() -> dict:
     url = "https://economia.awesomeapi.com.br/json/last/" + ",".join(
         [f"{m}-BRL" for m in moedas.keys()]
     )
@@ -128,10 +124,35 @@ def awesome_data():
     except Exception:
         return {}
 
+# Histórico via Yahoo para gráficos
+@st.cache_data(ttl=300)
+def yahoo_history(ticker: str, days: int = 30) -> pd.DataFrame:
+    try:
+        hist = yf.download(
+            tickers=ticker,
+            period=f"{days}d",
+            interval="1d",
+            progress=False
+        )
+        closes = hist["Close"].dropna().reset_index()
+        closes.rename(columns={"Date": "Data", "Close": "Fechamento"}, inplace=True)
+
+        # garante tipos corretos
+        closes["Data"] = pd.to_datetime(closes["Data"], errors="coerce")
+        closes["Fechamento"] = pd.to_numeric(closes["Fechamento"], errors="coerce")
+
+        return closes.dropna()
+    except Exception:
+        return pd.DataFrame()
+
+# Inicializa dados da AwesomeAPI
 data = awesome_data()
+
+# Cria colunas para métricas e gráficos
 cols = st.columns(5)
 
-for i, (moeda, nome) in enumerate(moedas.items()):
+# Loop moedas
+for i, (moeda, (codigo_pais, nome)) in enumerate(moedas.items()):
     chave = f"{moeda}BRL"
     valor = None
     info = data.get(chave)
@@ -158,10 +179,19 @@ for i, (moeda, nome) in enumerate(moedas.items()):
         except Exception:
             variacao = None
 
-    # renderização da métrica (fora do if variacao)
+    # renderização da métrica + gráfico
     with cols[i % 5]:
+        # bandeira
+        st.markdown(
+    f"""
+    <img src="https://flagcdn.com/w40/{codigo_pais}.png"
+         style="width:40px;height:25px;object-fit:cover;">
+    """,
+    unsafe_allow_html=True
+)
+
+
         if valor is not None:
-            # regra: se as duas primeiras casas decimais forem "00", mostra 4 casas
             casas = f"{valor:.3f}"
             parte_decimal = casas.split(".")[1]
             if parte_decimal.startswith("00"):
@@ -171,6 +201,20 @@ for i, (moeda, nome) in enumerate(moedas.items()):
 
             delta_str = f"{variacao:+.2f}%" if variacao is not None else "0.00%"
             st.metric(label=f"{nome} ({moeda}/BRL)", value=valor_str, delta=delta_str)
+
+            # gráfico histórico
+            hist_data = yahoo_history(f"{moeda}BRL=X")
+            if not hist_data.empty:
+                chart = alt.Chart(hist_data).mark_line(color="steelblue").encode(
+                    x=alt.X("Data:T", title="Data"),
+                    y=alt.Y("Fechamento:Q", title="Fechamento (R$)"),
+                    tooltip=["Data", "Fechamento"]
+                ).properties(
+                    width=250,
+                    height=150,
+                    title=f"{nome} ({moeda}/BRL)"
+                )
+                st.altair_chart(chart, use_container_width=True)
         else:
             st.metric(label=f"{nome} ({moeda}/BRL)", value="❌ Não disponível", delta="0.00%")
 
@@ -263,9 +307,3 @@ with col2:
         columns=["Ação", "Variação (%)", "Preço (R$)", "Volume"]
     )
     st.table(df_baixas.style.format({"Variação (%)": "{:+.2f}", "Preço (R$)": "{:.2f}"}))
-
-
-
-
-
-
